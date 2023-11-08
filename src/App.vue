@@ -1,4 +1,76 @@
-<script setup>
+<script>
+import * as todosApi from './api/todos';
+import StatusFilter from './components/StatusFilter.vue';
+import TodoItem from './components/TodoItem.vue';
+import Message from './components/Message.vue';
+
+export default {
+  components: {
+    StatusFilter,
+    TodoItem,
+    Message,
+  },
+  data() {
+    return {
+      todos: [],
+      title: '',
+      status: 'all',
+      errorMessage: '',
+    };
+  },
+  computed: {
+    activeTodos() {
+      return this.todos.filter(todo => !todo.completed);
+    },
+    completedTodos() {
+      return this.todos.filter(todo => todo.completed);
+    },
+    visibleTodos() {
+      switch (this.status) {
+        case 'active':
+          return this.activeTodos;
+
+        case 'completed':
+          return this.completedTodos;
+
+        default:
+          return this.todos;
+      }
+    }
+  },
+  mounted() {
+    todosApi.getTodos()
+      .then(({ data }) => this.todos = data)
+      .catch(() => {
+        this.$refs.errorMessage.show('Unable to load todos');
+      });
+  },
+  methods: {
+    addTodo() {
+      todosApi.createTodo(this.title)
+        .then(({ data }) => {
+          this.todos = [...this.todos, data];
+          this.title = '';
+        });
+    },
+    updateTodo({ id, title, completed }) {
+      todosApi.updateTodo({ id, title, completed })
+        .then(({ data }) => {
+          this.todos = this.todos.map(
+            todo => todo.id !== id ? todo : data,
+          );
+        });
+    },
+    deleteTodo(todoId) {
+      todosApi.deleteTodo(todoId)
+        .then(() => {
+          this.todos = this.todos.filter(
+            todo => todo.id !== todoId,
+          );
+        });
+    }
+  },
+};
 </script>
 
 <template>
@@ -12,7 +84,7 @@
           :class="{ active: activeTodos.length === 0 }"
         ></button>
 
-        <form @submit.prevent="handleSubmit">
+        <form @submit.prevent="addTodo">
           <input
             type="text"
             class="todoapp__new-todo"
@@ -28,7 +100,7 @@
         class="todoapp__main"
       >
         <TodoItem
-          v-for="todo, index of visibleTodos"
+          v-for="todo of visibleTodos"
           :key="todo.id"
           :todo="todo"
           @update="updateTodo"
@@ -68,5 +140,18 @@
   </div>
 </template>
 
-<style scoped>
+<style>
+  .list-enter-active,
+  .list-leave-active {
+    max-height: 60px;
+    /* transition: all 0.5s ease; */
+  }
+
+  .list-enter-from,
+  .list-leave-to {
+    opacity: 0;
+    max-height: 0;
+    transform: scaleY(0);
+  }
 </style>
+
